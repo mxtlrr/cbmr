@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -21,15 +22,25 @@ type ConnClientData struct {
 	/* playerElo  int */
 }
 
+type CurrentMatch struct {
+	player1  string
+	player2  string
+	seed     string
+	matchId  int32
+	category string
+}
+
 var (
 	connectedClients []ConnClientData
 	matchInPlay      bool  // Is there a match currently going on?
 	match_id         int64 = 0
+	currentMatch     CurrentMatch
 )
 
 func main() {
 	http.HandleFunc("/connect", connectClient)
 	http.HandleFunc("/start_match", beginMatch)
+	http.HandleFunc("/match_info", match_info)
 
 	log.Println("Server running on port 3000")
 	log.Fatal(http.ListenAndServe(":3000", nil))
@@ -54,6 +65,9 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 func generateSeed() int32 {
 	return rand.Int31n(((1 << 31) - 1))
 }
+
+var goodSeeds = []string{"badsigfile", "446456054", "33490196", "x9mc", "557110973",
+	"33490196", "327675199", "990066099", "2s4n2z", "69589057"}
 
 func beginMatch(w http.ResponseWriter, r *http.Request) {
 	// start_match?player1=[player1]&category=[category]
@@ -87,8 +101,28 @@ func beginMatch(w http.ResponseWriter, r *http.Request) {
 			"category": [category]
 		}
 	*/
+	if matchInPlay == true {
+		return
+	}
 	matchInPlay = true
-	io.WriteString(w, fmt.Sprintf("{\n\t\"id\": %d,\n\t\"players\": [\n\t\t\"player1\": \"%s\",\n\t\t\"player2\": \"%s\"\n\t],\n\t\"seed\": %d\n\t\"category\": %s\n}\n",
-		match_id, player1, player2, generateSeed(), category))
+
+	var seedChosen string
+	if category == "random" {
+		seedChosen = strconv.Itoa(int(generateSeed()))
+	} else if category == "any" {
+		seedChosen = goodSeeds[rand.Intn(len(goodSeeds))]
+	}
+
+	currentMatch = CurrentMatch{player1, player2, seedChosen, int32(match_id), category}
+
+	io.WriteString(w, fmt.Sprintf("{\n\t\"id\": %d,\n\t\"players\": [\n\t\t\"player1\": \"%s\",\n\t\t\"player2\": \"%s\"\n\t],\n\t\"seed\": \"%s\"\n\t\"category\": %s\n}\n",
+		match_id, player1, player2, seedChosen, category))
 	match_id++
+}
+
+func match_info(w http.ResponseWriter, r *http.Request) {
+	if matchInPlay {
+		io.WriteString(w, fmt.Sprintf("{\n\t\"id\": %d,\n\t\"players\": [\n\t\t\"player1\": \"%s\",\n\t\t\"player2\": \"%s\"\n\t],\n\t\"seed\": \"%s\"\n\t\"category\": %s\n}\n",
+			currentMatch.matchId, currentMatch.player1, currentMatch.player2, currentMatch.seed, currentMatch.category))
+	}
 }
