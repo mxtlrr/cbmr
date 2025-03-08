@@ -1,0 +1,6 @@
+*.db
+.vscode/
+*swp*
+
+TODO*
+CHANGELOG
