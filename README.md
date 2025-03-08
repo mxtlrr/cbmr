@@ -16,3 +16,6 @@ TODO.
 
 # Upcoming Features
 - [ ] Add skill-based matchmaking (based off ELOs).
+
+# Client Implementation Details
+See [](./example_clients/README.md)
