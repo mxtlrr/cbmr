@@ -20,14 +20,14 @@ Client.sendReq(connection, "GET", "/connect?name=mingus04")
 input("Type anything and press enter to start a match. Client 2 should be running.")
 print(Client.sendReq(connection, "GET", "/start_match?player1=mingus04&category=any"))
 
-# Now we should have the match started, ask user to forefeit
-input("Press enter to forefeit")
+# Now we should have the match started, ask user to win!
+input("Press enter to win the match")
 
 # send post req
 headers = { 'Content-Type': 'application/json' }
 
 json_data = {
-  "match_result": "forefeit",
+  "match_result": "win",
   "match_time": "17:26.444",
   "sender": "mingus04"
 }

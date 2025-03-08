@@ -19,19 +19,14 @@ def receive_get():
 	data = json.loads(data_str)
 	print(f"Parsed JSON: {data}")
 
-	v = input("Do you want to forefeit? (yes/no) ").lower()
 	json_data = {
 		"winner": "mingus04",
 		"time": "17:26.444",
+		"type": "loss",
 		"accepted": True
 	}
 	headers = {"Content-Type": "application/json"}
-	if v == "no":
-		json_data["accepted"] = False
-	else:
-		pass
-		
-	req = requests.post(f"http://127.0.0.1:3000/end_match",
+	requests.post(f"http://127.0.0.1:3000/end_match",
 									data=json.dumps(json_data),
 									headers=headers)
 	return ""

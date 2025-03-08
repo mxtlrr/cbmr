@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -79,12 +80,26 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Finished connecting client %d to server!\n", len(connectedClients))
 }
 
+/*****************************************/
+
 func generateSeed() int32 {
 	return rand.Int31n(((1 << 31) - 1))
 }
 
 var goodSeeds = []string{"badsigfile", "446456054", "33490196", "x9mc", "557110973",
 	"33490196", "327675199", "990066099", "2s4n2z", "69589057"}
+
+/*****************************************/
+/*****************************************/
+
+func getELOFromTime(category string, time float64) float64 {
+	if category == "random" {
+		return 0.1 * ((4 * math.Log2(time)) / 0.6)
+	}
+	return 100*math.Abs((0.6*(time/100))*((8)/(time-20))) + 10
+}
+
+/*****************************************/
 
 func beginMatch(w http.ResponseWriter, r *http.Request) {
 	// start_match?player1=[player1]&category=[category]
@@ -213,6 +228,7 @@ type matchInfoPOST struct {
 /*
 	{
 		"winner": [player1/player2],
+		"type":  [win/loss/forefeit/draw]
 		"time": [time],
 		"accepted": true/false
 	}
@@ -237,11 +253,34 @@ func end_match(w http.ResponseWriter, r *http.Request) {
 	log.Printf("match data posted!\n")
 	log.Println(data)
 
-	if data["accepted"] == true {
+	switch data["type"] {
+	case "forefeit":
+		if data["accepted"] == true {
+			matchInPlay = false
+			log.Printf("gg! winner is %s in %s\n", data["winner"], data["time"])
+		}
+		if data["accepted"] == false {
+			log.Printf("match is still on!")
+		}
+		break
+
+	case "draw":
+		if data["accepted"] == true {
+			matchInPlay = false
+			log.Printf("draw made... no ELO modified..\n")
+		}
+		break
+
+	// TODO: dostuff with ELO
+	case "win": // player2 won
 		matchInPlay = false
-		log.Printf("gg! winner is %s in %s\n", data["winner"], data["time"])
+		log.Printf("PLAYER2, %s, has WON!\n", currentMatch.player2)
+		break
+
+	case "loss": // player1 won
+		matchInPlay = false
+		log.Printf("PLAYER1, %s, has WON!\n", currentMatch.player1)
+		break
 	}
-	if data["accepted"] == false {
-		log.Printf("match is still on!")
-	}
+
 }
