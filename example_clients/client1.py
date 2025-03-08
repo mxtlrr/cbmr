@@ -25,5 +25,12 @@ input("Press enter to forefeit")
 
 # send post req
 headers = { 'Content-Type': 'application/json' }
-json_data = {"result": "forefeit", "from": "mingus04"}
+
+json_data = {
+  "match_result": "forefeit",
+  "match_time": "17:26.444",
+  "sender": "mingus04"
+}
 connection.request("POST", "/match_info", __import__("json").dumps(json_data), headers)
+
+# Wait for GET

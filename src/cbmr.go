@@ -12,6 +12,13 @@ import (
 	"strings"
 )
 
+func handle_err(err error) {
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
 type ConnClientData struct {
 	// We need to send requests to the client like, twice.
 	// We store it here. Additionally, we're going to assume
@@ -37,8 +44,6 @@ type CurrentMatch struct {
 	seed     string
 	matchId  int32
 	category string
-
-	currentResult int8
 }
 
 var (
@@ -52,6 +57,7 @@ func main() {
 	http.HandleFunc("/connect", connectClient)
 	http.HandleFunc("/start_match", beginMatch)
 	http.HandleFunc("/match_info", match_info)
+	http.HandleFunc("/end_match", end_match)
 
 	log.Println("Server running on port 3000")
 	log.Fatal(http.ListenAndServe(":3000", nil))
@@ -124,11 +130,20 @@ func beginMatch(w http.ResponseWriter, r *http.Request) {
 		seedChosen = goodSeeds[rand.Intn(len(goodSeeds))]
 	}
 
-	currentMatch = CurrentMatch{player1, player2, seedChosen, int32(match_id), category, MATCH_IN_PLAY}
+	currentMatch = CurrentMatch{player1, player2, seedChosen, int32(match_id), category}
 
 	io.WriteString(w, fmt.Sprintf("{\n\t\"id\": %d,\n\t\"players\": [\n\t\t\"player1\": \"%s\",\n\t\t\"player2\": \"%s\"\n\t],\n\t\"seed\": \"%s\"\n\t\"category\": %s\n}\n",
 		match_id, player1, player2, seedChosen, category))
 	match_id++
+}
+
+func getIndexOfPlayer(s string) int {
+	for i := 0; i < len(connectedClients); i++ {
+		if connectedClients[i].playerName == s {
+			return i
+		}
+	}
+	return -1
 }
 
 func match_info(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +163,6 @@ func match_info(w http.ResponseWriter, r *http.Request) {
 		{
 			"match_result": "win" 							// Based off the player who sent it.
 			"match_time": 	"0:12.345",
-			"forefeit_opp": "[player2's name]" // Only used if match_result = forefeit.
 			"sender":			  "[player1's name]"
 		}
 	*/
@@ -166,7 +180,19 @@ func match_info(w http.ResponseWriter, r *http.Request) {
 			log.Fatalln(err)
 		}
 
-		// JSON decoded, now we can parse!
+		// We need to send a message to player2, so let's get the player we need to send.
+		messageToSendTo := currentMatch.player2
+		if matchIf.sender == currentMatch.player2 {
+			messageToSendTo = currentMatch.player1
+		}
+
+		// Next we'll send the packet to the client, and the client can handle it
+		log.Printf("wtf idk %s\n", connectedClients[getIndexOfPlayer(messageToSendTo)])
+		bruh := fmt.Sprintf("http://%s:8080/match_info?data=%s",
+			connectedClients[getIndexOfPlayer(messageToSendTo)].clientAddress,
+			url.QueryEscape(string(body)))
+		fmt.Println(bruh)
+		http.Get(bruh)
 	}
 }
 
@@ -175,4 +201,47 @@ type matchInfoPOST struct {
 	match_time   string
 	forefeit_opp string
 	sender       string
+}
+
+// Once player 2 acknowledges (if win/loss) / accepts (draw/forfeit),
+// *player2* will call this. Additionally, player1 should continously
+// poll this route with a GET request every few seconds to check if the
+// server is running
+
+// player2's client should send a POST request with JSON,
+// that should look like this:
+/*
+	{
+		"winner": [player1/player2],
+		"time": [time],
+		"accepted": true/false
+	}
+*/
+func end_match(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		io.WriteString(w, fmt.Sprintf("%t", matchInPlay))
+		return
+	}
+	// method should be post, that's the only one that the client should expose.
+	// now let's parse the JSON output object.
+
+	var data map[string]interface{}
+	body, err := io.ReadAll(r.Body)
+	handle_err(err)
+
+	defer r.Body.Close()
+	err = json.Unmarshal(body, &data)
+	handle_err(err)
+
+	// We now have the JSON,  modify ELO and other stuff.
+	log.Printf("match data posted!\n")
+	log.Println(data)
+
+	if data["accepted"] == true {
+		matchInPlay = false
+		log.Printf("gg! winner is %s in %s\n", data["winner"], data["time"])
+	}
+	if data["accepted"] == false {
+		log.Printf("match is still on!")
+	}
 }
