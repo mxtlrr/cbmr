@@ -11,6 +11,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"database/sql"
+
+	_ "modernc.org/sqlite"
 )
 
 func handle_err(err error) {
@@ -52,9 +56,13 @@ var (
 	matchInPlay      bool  // Is there a match currently going on?
 	match_id         int64 = 0
 	currentMatch     CurrentMatch
+	hDatabase        *sql.DB
 )
 
 func main() {
+	// open handle to database
+	hDatabase, _ = sql.Open("sqlite", "players.db")
+
 	http.HandleFunc("/connect", connectClient)
 	http.HandleFunc("/start_match", beginMatch)
 	http.HandleFunc("/match_info", match_info)
@@ -77,6 +85,10 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 	// TODO: check if already exists
 
 	connectedClients = append(connectedClients, currentClient)
+
+	// Add to database with ELO 0.
+	hDatabase.Exec(fmt.Sprintf("INSERT INTO players VALUES (\"%s\", 0.0)",
+		name))
 	log.Printf("Finished connecting client %d to server!\n", len(connectedClients))
 }
 
@@ -262,25 +274,21 @@ func end_match(w http.ResponseWriter, r *http.Request) {
 		if data["accepted"] == false {
 			log.Printf("match is still on!")
 		}
-		break
 
 	case "draw":
 		if data["accepted"] == true {
 			matchInPlay = false
 			log.Printf("draw made... no ELO modified..\n")
 		}
-		break
 
 	// TODO: dostuff with ELO
 	case "win": // player2 won
 		matchInPlay = false
 		log.Printf("PLAYER2, %s, has WON!\n", currentMatch.player2)
-		break
 
 	case "loss": // player1 won
 		matchInPlay = false
 		log.Printf("PLAYER1, %s, has WON!\n", currentMatch.player1)
-		break
 	}
 
 }
