@@ -14,8 +14,14 @@ TODO.
 
 <!-- TODO: modernc.org/sqlite for sqlite -->
 
-# Upcoming Features
+# Todolist
 - [ ] Add skill-based matchmaking (based off ELOs).
+- [ ] Add database to store
+  - Updated ELO from match making
+- [ ] Add authentication (discord)
+- [ ] Support multiple matches running at the same time
+- [ ] Rewrite CBMR in C/C++, Golang is only here for a quick and dirty implementation
+- [ ] Clean (pretty much) the entire codebase up.
 
 # Client Implementation Details
-See [](./example_clients/README.md)
+See [the implementation details](./example_clients/README.md)
